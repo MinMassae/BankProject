@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>로그인</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        .box {
+            background: #eee;
+            padding: 30px;
+            width: 300px;
+            text-align: center;
+        }
+        .input {
+            margin: 10px 0;
+            width: 100%;
+            padding: 8px;
+        }
+        .btn {
+            margin-top: 15px;
+            width: 100%;
+            padding: 10px;
+            background: #222;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        .link {
+            margin-top: 10px;
+            font-size: 0.9em;
+            display: block;
+        }
+        .error {
+            color: red;
+            font-size: 0.9em;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="box">
+    <form id="loginForm">
+        <input type="text" id="username" class="input" placeholder="ID" required>
+        <input type="password" id="password" class="input" placeholder="PW" required>
+        <button class="btn" type="submit">Login</button>
+        <a href="/register" class="link">会員登録</a>
+        <p id="login-error" class="error" style="display: none;">IDまたはパスワードが正しくありません。</p>
+    </form>
+</div>
+
+<script>
+    document.getElementById("loginForm").addEventListener("submit", function (e) {
+        e.preventDefault();
+        const username = document.getElementById("username").value;
+        const password = document.getElementById("password").value;
+
+        fetch("http://localhost:8080/api/login", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({id: username, password})
+        })
+            .then(res => {
+                if (!res.ok) {
+                    document.getElementById("login-error").style.display = "block";
+                    return null;
+                }
+                return res.json();
+            })
+            .then(data => {
+                if (data && data.token) {
+                    localStorage.setItem("token", data.token); // ✅ JWT 저장
+                    location.href = "/"; // ✅ 로그인 후 메인 페이지로 이동
+                }
+            })
+            .catch(() => alert("서버 오류"));
+        })
+</script>
+
+</body>
+</html>

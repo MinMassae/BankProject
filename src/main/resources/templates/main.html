@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>なになに銀行</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            background: #f5f5f5;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        header {
+            background: #ddd;
+            width: 100%;
+            text-align: center;
+            padding: 20px;
+            font-size: 24px;
+            font-weight: bold;
+        }
+        main {
+            display: flex;
+            justify-content: space-between;
+            padding: 20px;
+            width: 90%;
+            max-width: 1000px;
+        }
+        .left, .right {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .left {
+            width: 60%;
+        }
+        .right {
+            width: 35%;
+        }
+        .card {
+            background: #ddd;
+            padding: 20px;
+            min-height: 100px;
+        }
+        .card-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .rate {
+            font-size: 18px;
+            margin-top: 5px;
+        }
+        .account-box {
+            background: #007bff;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 10px;
+            border: 2px solid #0056b3;
+            color: white;
+            cursor: pointer;
+            position: relative;
+        }
+        .account-box:hover {
+            background: #0056b3;
+        }
+        .account-number {
+            font-size: 16px;
+            font-weight: bold;
+        }
+        .account-balance {
+            font-size: 14px;
+            margin-top: 5px;
+        }
+        .delete-button {
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            position: absolute;
+            top: 10px;
+            right: 10px;
+        }
+        .delete-button:hover {
+            color: red;
+        }
+        .btn {
+            margin-top: 10px;
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+        #deleteModal, #otpModal {
+            display: none;
+            position: fixed;
+            top: 30%;
+            left: 35%;
+            background: #fff;
+            padding: 20px;
+            border: 1px solid #aaa;
+            z-index: 1000;
+        }
+        #generatedOtp {
+            margin-top:10px;
+            font-size:24px;
+            font-weight:bold;
+            color:red;
+        }
+        #otpStatus {
+            margin-top: 10px;
+            font-weight: bold;
+            color: green;
+        }
+    </style>
+</head>
+<body>
+
+<header>なになに銀行</header>
+
+<main>
+    <div class="left">
+        <div class="card">
+            <div class="card-title">USD支援レート</div>
+            <div class="rate" id="usd-rate">読み込み中...</div>
+        </div>
+        <div class="card">
+            <div class="card-title">JPY支援レート</div>
+            <div class="rate" id="jpy-rate">読み込み中...</div>
+        </div>
+    </div>
+
+    <div class="right">
+        <div class="card" id="login-box">
+            <button class="btn" onclick="location.href='/login'">ログイン</button>
+        </div>
+
+        <div class="card" id="account-box" style="display:none;">
+            <div><strong><span id="username"></span>様</strong></div>
+            <div>口座情報</div>
+            <div id="account-list"></div>
+            <button class="btn" onclick="location.href='/account/confirm'">口座開設</button>
+            <button class="btn" onclick="logout()">ログアウト</button>
+            <button class="btn" onclick="openOtpModal()">OTP認証</button>
+            <div id="otpStatus"></div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">レポート</div>
+            <div id="report-box">ログインが必要です。</div>
+        </div>
+    </div>
+</main>
+
+<div id="deleteModal">
+    <p>削除する口座番号を入力してください。</p>
+    <input type="text" id="deleteAccountNumber" placeholder="口座番号"><br><br>
+    <input type="password" id="deletePin" placeholder="暗証番号（4桁）"><br><br>
+    <button onclick="confirmDelete()">確認</button>
+    <button onclick="closeModal()">キャンセル</button>
+</div>
+
+<div id="otpModal">
+    <p><strong>下記のOTP番号を入力してください：</strong></p>
+    <div id="generatedOtp">...</div>
+    <br>
+    <input type="text" id="otpInput" placeholder="6桁のOTP番号"><br><br>
+    <button onclick="submitOTP()">認証する</button>
+    <button onclick="closeOtpModal()">キャンセル</button>
+</div>
+
+<script>
+    const token = localStorage.getItem("token");
+
+    if (token) {
+        document.getElementById("login-box").style.display = "none";
+        document.getElementById("account-box").style.display = "block";
+        document.getElementById("report-box").innerText = "今月のレポートを見る";
+
+        fetch("http://localhost:8080/api/me", {
+            headers: { "Authorization": "Bearer " + token }
+        })
+            .then(res => res.json())
+            .then(user => {
+                localStorage.setItem("memberNo", user.memberNo);
+                document.getElementById("username").innerText = user.name || "ゲスト";
+                const container = document.getElementById("account-list");
+                if (!user.accounts || user.accounts.length === 0) {
+                    container.innerHTML = "<p>現在、口座がありません。</p>";
+                } else {
+                    container.innerHTML = "";
+                    user.accounts.forEach(acc => {
+                        container.innerHTML += `
+                            <div class="account-box" onclick="moveToDetail('${acc.accountNumber}')">
+                                <div class="account-number">${acc.accountNumber}</div>
+                                <div class="account-balance">残高: ${acc.balance} 円</div>
+                                <button class="delete-button" onclick="event.stopPropagation(); openDeleteModal('${acc.accountNumber}')">❌</button>
+                            </div>
+                        `;
+                    });
+                }
+
+                if (localStorage.getItem("otpVerified") === "true") {
+                    document.getElementById("otpStatus").innerText = "✅ OTP認証が完了しました。";
+                }
+            })
+            .catch(err => {
+                console.error("ユーザ情報エラー:", err);
+                document.getElementById("username").innerText = "ゲスト様";
+            })
+            .finally(() => loadExchangeRates());
+    } else {
+        loadExchangeRates();
+    }
+
+    function logout() {
+        localStorage.removeItem("token");
+        localStorage.removeItem("memberNo");
+        localStorage.removeItem("otpVerified");
+        alert("ログアウトしました。");
+        location.href = "/login";
+    }
+
+    function loadExchangeRates() {
+        fetch("http://localhost:8080/api/exchange-rate/naver")
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById("usd-rate").innerText = `USD: ${data.usd} KRW`;
+                document.getElementById("jpy-rate").innerText = `JPY: ${data.jpy} KRW`;
+            })
+            .catch(() => {
+                document.getElementById("usd-rate").innerText = "読み込みエラー";
+                document.getElementById("jpy-rate").innerText = "読み込みエラー";
+            });
+    }
+
+    function moveToDetail(accountNumber) {
+        location.href = `/account/${accountNumber}`;
+    }
+
+    function openDeleteModal(accountNumber) {
+        document.getElementById("deleteModal").style.display = "block";
+        document.getElementById("deleteAccountNumber").value = accountNumber;
+    }
+
+    function closeModal() {
+        document.getElementById("deleteModal").style.display = "none";
+    }
+
+    function confirmDelete() {
+        const accountNumber = document.getElementById("deleteAccountNumber").value;
+        const pin = document.getElementById("deletePin").value;
+
+        fetch("http://localhost:8080/api/account/delete", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer " + token
+            },
+            body: JSON.stringify({ accountNumber, pin })
+        })
+            .then(res => res.ok ? location.reload() : res.text().then(msg => { throw new Error(msg); }))
+            .catch(err => alert("エラー: " + err.message));
+    }
+
+    function openOtpModal() {
+        const memberNo = getMemberNo();
+        fetch(`http://localhost:8080/api/otp/generate?memberNo=${memberNo}`, {
+            method: "POST",
+            headers: { "Authorization": "Bearer " + token }
+        })
+            .then(() => fetch(`http://localhost:8080/api/otp/${memberNo}`, {
+                headers: { "Authorization": "Bearer " + token }
+            }))
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById("generatedOtp").innerText = data.otpNumber || "取得失敗";
+                document.getElementById("otpModal").style.display = "block";
+            })
+            .catch(() => alert("OTPの取得に失敗しました。"));
+    }
+
+    function closeOtpModal() {
+        document.getElementById("otpModal").style.display = "none";
+    }
+
+    function submitOTP() {
+        const otpNumber = document.getElementById("otpInput").value;
+        const memberNo = getMemberNo();
+
+        fetch("http://localhost:8080/api/otp/verify", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+                "Authorization": "Bearer " + token
+            },
+            body: new URLSearchParams({ memberNo, otpNumber })
+        })
+            .then(res => {
+                if (res.ok) return res.text();
+                else throw new Error("認証失敗");
+            })
+            .then(() => {
+                alert("OTP認証成功！");
+                localStorage.setItem("otpVerified", "true");
+                document.getElementById("otpStatus").innerText = "✅ OTP認証が完了しました。";
+                closeOtpModal();
+            })
+            .catch(err => alert("OTP認証失敗: " + err.message));
+    }
+
+    function getMemberNo() {
+        return localStorage.getItem("memberNo");
+    }
+</script>
+
+</body>
+</html>

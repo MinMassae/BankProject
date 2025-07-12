@@ -1,0 +1,230 @@
+<!-- 생략 없이 전체 HTML 제공됨 -->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>口座詳細</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            background: #f5f5f5;
+            margin: 0;
+            padding: 0;
+            display: flex;
+        }
+        #sidebar {
+            width: 200px;
+            background: #ddd;
+            padding: 20px;
+            height: 100vh;
+        }
+        #sidebar button {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            cursor: pointer;
+        }
+        #content {
+            flex: 1;
+            padding: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        table, th, td {
+            border: 1px solid #aaa;
+        }
+        th, td {
+            padding: 10px;
+            text-align: center;
+        }
+        #transferModal {
+            display: none;
+            position: fixed;
+            top: 30%;
+            left: 35%;
+            background: #fff;
+            padding: 20px;
+            border: 1px solid #aaa;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+
+<div id="sidebar">
+    <button onclick="showHistory()">取引履歴</button>
+    <button onclick="showTransferHistory()">振込履歴</button>
+    <button onclick="openTransferModal()">振込</button>
+    <button onclick="location.href='/'">ホームに戻る</button>
+</div>
+
+<div id="content">
+    <h2>口座詳細</h2>
+    <p>口座番号: <span id="accountNumber"></span></p>
+    <p>残高: <span id="balance"></span> 円</p>
+
+    <div id="historySection" style="display:none;">
+        <h3>履歴</h3>
+        <table>
+            <thead>
+            <tr>
+                <th>区分</th>
+                <th>金額</th>
+                <th>時間</th>
+                <th>メモ</th>
+            </tr>
+            </thead>
+            <tbody id="historyTable"></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 振込モーダル -->
+<div id="transferModal">
+    <h3>振込</h3>
+    <label>振込先口座番号: <input type="text" id="toAccountNumber"></label><br><br>
+    <label>金額: <input type="text" id="amount" inputmode="numeric" pattern="[0-9]*"></label><br>
+    <small id="availableAmount" style="color: gray;">現在利用可能額: 0 円</small><br><br>
+    <label>暗証番号（4桁）: <input type="password" id="pin"></label><br><br>
+    <button onclick="transfer()">振込実行</button>
+    <button onclick="closeTransferModal()">キャンセル</button>
+</div>
+
+<script>
+    const accountNumber = window.location.pathname.split('/')[2];
+    const token = localStorage.getItem("token");
+    const otpVerified = localStorage.getItem("otpVerified");
+    let currentBalance = 0;
+
+    document.getElementById("accountNumber").innerText = accountNumber;
+
+    function loadBalance() {
+        fetch(`http://localhost:8080/api/account/${accountNumber}/balance`)
+            .then(res => res.json())
+            .then(data => {
+                currentBalance = data.balance;
+                document.getElementById("balance").innerText = currentBalance;
+            })
+            .catch(err => alert("残高読み込みエラー"));
+    }
+
+    loadBalance();
+
+    function showHistory() {
+        document.getElementById("historySection").style.display = "block";
+
+        fetch(`http://localhost:8080/api/account/${accountNumber}/history`)
+            .then(res => res.json())
+            .then(data => {
+                const table = document.getElementById("historyTable");
+                table.innerHTML = '';
+                data.forEach(tx => {
+                    table.innerHTML += `
+            <tr>
+              <td>${tx.type}</td>
+              <td>${tx.amount}</td>
+              <td>${tx.transactionTime}</td>
+              <td>${tx.memo}</td>
+            </tr>
+          `;
+                });
+            })
+            .catch(err => alert("取引履歴読み込みエラー"));
+    }
+
+    function showTransferHistory() {
+        document.getElementById("historySection").style.display = "block";
+
+        fetch(`http://localhost:8080/api/account/${accountNumber}/transfer-history`)
+            .then(res => res.json())
+            .then(data => {
+                const table = document.getElementById("historyTable");
+                table.innerHTML = '';
+                data.forEach(tx => {
+                    table.innerHTML += `
+            <tr>
+              <td>振込</td>
+              <td>${tx.amount}</td>
+              <td>${tx.transactionTime}</td>
+              <td>送信元: ${tx.fromAccountNumber} → 受信先: ${tx.toAccountNumber}</td>
+            </tr>
+          `;
+                });
+            })
+            .catch(err => alert("振込履歴読み込みエラー"));
+    }
+
+    function openTransferModal() {
+        if (!otpVerified || otpVerified !== "true") {
+            alert("OTP認証が必要です。");
+            location.href = "/";
+            return;
+        }
+
+        document.getElementById("transferModal").style.display = "block";
+
+        fetch(`http://localhost:8080/api/account/${accountNumber}/balance`)
+            .then(res => res.json())
+            .then(data => {
+                currentBalance = data.balance;
+                document.getElementById("availableAmount").innerText = `現在利用可能額: ${currentBalance} 円`;
+            })
+            .catch(err => {
+                document.getElementById("availableAmount").innerText = `利用可能額取得エラー`;
+            });
+    }
+
+    document.getElementById("amount").addEventListener("input", function () {
+        const inputAmount = Number(this.value);
+        this.style.color = inputAmount > currentBalance ? "red" : "black";
+    });
+
+    function closeTransferModal() {
+        document.getElementById("transferModal").style.display = "none";
+        document.getElementById("toAccountNumber").value = '';
+        document.getElementById("amount").value = '';
+        document.getElementById("pin").value = '';
+        document.getElementById("amount").style.color = "black";
+    }
+
+    function transfer() {
+        const toAccountNumber = document.getElementById("toAccountNumber").value;
+        const amount = Number(document.getElementById("amount").value);
+        const pin = document.getElementById("pin").value;
+
+        if (amount > currentBalance) {
+            alert("現在残高が不足しています。");
+            return;
+        }
+
+        fetch("http://localhost:8080/api/account/transfer", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer " + token
+            },
+            body: JSON.stringify({
+                fromAccountNumber: accountNumber,
+                toAccountNumber: toAccountNumber,
+                amount: amount,
+                pin: pin
+            })
+        })
+            .then(res => {
+                if (res.ok) {
+                    alert("振込成功！");
+                    loadBalance();
+                    closeTransferModal();
+                } else {
+                    return res.text().then(msg => { throw new Error(msg); });
+                }
+            })
+            .catch(err => alert("エラー: " + err.message));
+    }
+</script>
+
+</body>
+</html>

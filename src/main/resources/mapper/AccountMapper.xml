@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.bankproject.mapper.AccountMapper">
+
+    <!-- 회원 번호 기준 계좌 목록 조회 -->
+    <select id="findByMemberNo" resultType="com.example.bankproject.entity.Account">
+        SELECT no, members_no, account_number, balance, job, created_at
+        FROM account
+        WHERE members_no = #{memberNo}
+    </select>
+
+    <!-- 계좌 개수 조회 -->
+    <select id="countAccountsByMemberId" resultType="int">
+        SELECT COUNT(*) FROM account WHERE members_no = #{memberId}
+    </select>
+
+    <!-- 계좌 생성 -->
+    <insert id="insertAccount">
+        INSERT INTO account (
+            members_no, job, pin, purpose, account_number, balance, created_at
+        ) VALUES (
+                     #{memberId},
+                     #{dto.job},
+                     #{dto.pin},
+                     #{dto.purpose},
+                     CONCAT('110-', LPAD(FLOOR(RAND() * 1000000000), 10, '0')),
+                     0.0,
+                     NOW()
+                 )
+    </insert>
+
+    <!-- 계좌 조회 -->
+    <select id="findByAccountNumber" resultType="com.example.bankproject.entity.Account">
+        SELECT * FROM account WHERE account_number = #{accountNumber}
+    </select>
+
+    <!-- 계좌 삭제 -->
+    <delete id="deleteByAccountNumber">
+        DELETE FROM account WHERE account_number = #{accountNumber}
+    </delete>
+
+    <!-- 잔액 업데이트 -->
+    <update id="updateBalance">
+        UPDATE account
+        SET balance = #{balance}
+        WHERE account_number = #{accountNumber}
+    </update>
+
+    <!-- 거래 내역 조회 -->
+    <select id="findHistoryByAccountNo" resultType="com.example.bankproject.entity.AccountHistory">
+        SELECT * FROM account_history
+        WHERE account_no = #{accountNo}
+        ORDER BY created_at DESC
+    </select>
+
+    <!-- 거래 내역 저장 -->
+    <insert id="insertHistory">
+        INSERT INTO account_history (account_no, type, amount, balance_after, created_at, memo)
+        VALUES (#{accountNo}, #{type}, #{amount}, #{balanceAfter}, NOW(), #{memo})
+    </insert>
+
+    <!-- 🔥 이체 내역 저장 -->
+    <insert id="insertTransferHistory">
+        INSERT INTO transfer_history (from_account_no, to_account_no, amount, created_at)
+        VALUES (#{fromAccountNo}, #{toAccountNo}, #{amount}, NOW())
+    </insert>
+
+    <!-- 이체 내역 조회 -->
+    <select id="findTransferHistoryByAccountNumber" resultType="map">
+        SELECT
+            af.account_number AS fromAccountNumber,
+            at.account_number AS toAccountNumber,
+            t.amount,
+            t.created_at AS createdAt
+        FROM transfer_history t
+                 JOIN account af ON t.from_account_no = af.no
+                 JOIN account at ON t.to_account_no = at.no
+        WHERE af.account_number = #{accountNumber} OR at.account_number = #{accountNumber}
+        ORDER BY t.created_at DESC
+    </select>
+
+
+</mapper>

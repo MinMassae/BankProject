@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>口座開設の同意</title>
+    <style>
+        body { font-family: sans-serif; background-color: #f5f5f5; margin: 0; padding: 0; }
+        .container { max-width: 600px; margin: 40px auto; padding: 20px; background-color: #fff; border: 1px solid #ccc; border-radius: 8px; }
+        h2 { margin-bottom: 20px; }
+        .btn-box { display: flex; justify-content: space-between; margin-top: 20px; }
+        button { padding: 10px 20px; background-color: #007bff; border: none; color: white; font-size: 14px; border-radius: 4px; cursor: pointer; }
+        button.cancel { background-color: #6c757d; }
+        label { display: block; margin-top: 20px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h2>口座開設に関するご案内</h2>
+
+    <textarea readonly rows="10" style="width:100%; resize:none;">
+1. 一人当たりの口座は二つまで作ることができます。
+2. 口座開設には本人確認が必要です。
+3. 暗証番号は他人に教えないでください。
+  </textarea>
+
+    <label>
+        <input type="checkbox" id="agreeCheck">
+        内容を確認し、同意します。
+    </label>
+
+    <div class="btn-box">
+        <button onclick="proceed()">進行する</button>
+        <button class="cancel" onclick="location.href='/'">キャンセル</button>
+    </div>
+</div>
+
+<script>
+    function proceed() {
+        const check = document.getElementById('agreeCheck').checked;
+        if (!check) {
+            alert("同意が必要です。");
+            return;
+        }
+        // 약관 동의 시 바로 계좌 개설 폼으로 이동
+        location.href = "/account/open-form";
+    }
+</script>
+
+</body>
+</html>

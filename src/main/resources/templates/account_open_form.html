@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>口座開設フォーム</title>
+  <style>
+    body { font-family: sans-serif; background-color: #f5f5f5; margin: 0; padding: 0; }
+    .container { max-width: 600px; margin: 40px auto; padding: 20px; background-color: #fff; border: 1px solid #ccc; border-radius: 8px; }
+    h2 { margin-bottom: 20px; }
+    .form-group { margin-bottom: 15px; }
+    label { display: block; font-size: 14px; margin-bottom: 5px; }
+    input[type="text"], input[type="password"], select { width: 100%; padding: 10px; font-size: 14px; border: 1px solid #ccc; border-radius: 4px; }
+    .btn-box { display: flex; justify-content: space-between; margin-top: 20px; }
+    button { padding: 10px 20px; background-color: #007bff; border: none; color: white; font-size: 14px; border-radius: 4px; cursor: pointer; }
+    button.cancel { background-color: #6c757d; }
+    #custom-job-box { margin-top: 10px; display: none; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h2>口座情報を入力してください</h2>
+
+  <div class="form-group">
+    <label for="jobSelect">職業</label>
+    <select id="jobSelect" onchange="toggleCustomJobInput()" required>
+      <option value="">選択してください</option>
+      <option value="会社員">会社員</option>
+      <option value="学生">学生</option>
+      <option value="自営業">自営業</option>
+      <option value="無職">無職</option>
+      <option value="その他">その他（直接入力）</option>
+    </select>
+    <div id="custom-job-box">
+      <label for="custom-job">職業を入力してください</label>
+      <input type="text" id="custom-job" placeholder="例）フリーランス">
+    </div>
+  </div>
+
+  <div class="form-group">
+    <label for="purpose">目的</label>
+    <input type="text" id="purpose" placeholder="例）生活費の管理" required>
+  </div>
+
+  <div class="form-group">
+    <label for="pin">暗証番号（4桁）</label>
+    <input type="password" id="pin" pattern="\d{4}" maxlength="4" placeholder="4桁の数字" required>
+  </div>
+
+  <div class="btn-box">
+    <button type="button" onclick="submitAccount()">口座開設</button>
+    <button type="button" class="cancel" onclick="location.href='/'">キャンセル</button>
+  </div>
+</div>
+
+<script>
+  function toggleCustomJobInput() {
+    const jobSelect = document.getElementById('jobSelect');
+    const customJobBox = document.getElementById('custom-job-box');
+    if (jobSelect.value === 'その他') {
+      customJobBox.style.display = 'block';
+    } else {
+      customJobBox.style.display = 'none';
+    }
+  }
+
+  function submitAccount() {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      alert("ログインが必要です。");
+      return;
+    }
+
+    const jobSelect = document.getElementById('jobSelect');
+    const customJobInput = document.getElementById('custom-job');
+    const purpose = document.getElementById('purpose').value;
+    const pin = document.getElementById('pin').value;
+
+    let job = jobSelect.value;
+    if (job === 'その他') {
+      if (customJobInput.value.trim() === "") {
+        alert("職業を入力してください。");
+        return;
+      }
+      job = customJobInput.value.trim();
+    }
+
+    fetch("http://localhost:8080/api/account/create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
+      body: JSON.stringify({ job, purpose, pin })
+    })
+            .then(res => {
+              if (res.ok) {
+                alert("口座が作成されました。");
+                window.location.href = "/";
+              } else {
+                return res.text().then(msg => { throw new Error(msg); });
+              }
+            })
+            .catch(err => alert("エラー: " + err.message));
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.bankproject.mapper.OTPMapper">
+
+    <!-- 🔹 1. 회원번호로 OTP 조회 -->
+    <select id="findByMemberNo" resultType="com.example.bankproject.entity.OTP">
+        SELECT *
+        FROM otp
+        WHERE member_no = #{memberNo}
+    </select>
+
+    <!-- 🔹 2. 회원번호 + OTP 번호로 조회 (인증용) -->
+    <select id="findByMemberNoAndOtpNumber" resultType="com.example.bankproject.entity.OTP">
+        SELECT *
+        FROM otp
+        WHERE member_no = #{memberNo} AND otp_number = #{otpNumber}
+    </select>
+
+    <!-- 🔹 3. OTP 저장 (신규) -->
+    <insert id="insertOTP">
+        INSERT INTO otp (member_no, otp_number, created_at, updated_at)
+        VALUES (#{memberNo}, #{otpNumber}, NOW(), NOW())
+    </insert>
+
+    <!-- 🔹 4. OTP 갱신 -->
+    <update id="updateOTP">
+        UPDATE otp
+        SET otp_number = #{otpNumber}, updated_at = NOW()
+        WHERE member_no = #{memberNo}
+    </update>
+
+    <!-- 🔹 5. 전체 OTP 조회 (배치용) -->
+    <select id="findAll" resultType="com.example.bankproject.entity.OTP">
+        SELECT *
+        FROM otp
+    </select>
+</mapper>

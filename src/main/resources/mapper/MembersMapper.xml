@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.bankproject.mapper.MembersMapper">
+
+    <!-- 회원 등록 -->
+    <insert id="insertMember">
+        INSERT INTO members (id, password, name, created_at)
+        VALUES (#{id}, #{password}, #{name}, NOW())
+    </insert>
+
+    <!-- no(PK)로 회원 조회 -->
+    <select id="findByNo" resultType="com.example.bankproject.entity.Members">
+        SELECT no, id, password, name, created_at
+        FROM members
+        WHERE no = #{no}
+    </select>
+
+    <!-- id(아이디)로 회원 조회 (중복 체크 등) -->
+    <select id="findByUsername" resultType="com.example.bankproject.entity.Members">
+        SELECT no, id, password, name, created_at
+        FROM members
+        WHERE id = #{id}
+    </select>
+
+</mapper>
